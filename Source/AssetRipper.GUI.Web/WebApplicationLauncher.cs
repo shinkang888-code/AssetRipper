@@ -97,7 +97,11 @@ public static class WebApplicationLauncher
 #endif
 		});
 
-		builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
+		// Bind host defaults to loopback for the local desktop use case. Set the AR_BIND_HOST
+		// environment variable (e.g. "0.0.0.0") to expose the server, such as when self-hosting
+		// inside a container. Only do this behind a trusted network or reverse proxy.
+		string bindHost = Environment.GetEnvironmentVariable("AR_BIND_HOST") is { Length: > 0 } host ? host : "127.0.0.1";
+		builder.WebHost.UseUrls($"http://{bindHost}:{port}");
 
 		builder.Services.AddTransient<ErrorHandlingMiddleware>(static (_) => new());
 		builder.Services.ConfigureHttpJsonOptions(options =>
