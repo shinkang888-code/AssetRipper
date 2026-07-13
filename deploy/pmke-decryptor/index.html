@@ -1,0 +1,237 @@
+<title>PMKE Decryptor</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --bg:#0d1316; --surface:#141d21; --surface-2:#1b262b; --line:rgba(150,190,195,.14);
+    --ink:#dde7e8; --muted:#8ba1a5; --faint:#5f757a;
+    --accent:#33d1c1; --accent-ink:#0a1514;
+    --ok:#74d68a; --warn:#f2c14e; --bad:#ff6b6b;
+    --mono:ui-monospace,"SF Mono",SFMono-Regular,Menlo,Consolas,"Liberation Mono",monospace;
+    --sans:"Segoe UI",system-ui,-apple-system,Roboto,Helvetica,Arial,sans-serif;
+    --radius:14px; --maxw:760px;
+  }
+  @media (prefers-color-scheme: light){
+    :root{
+      --bg:#eef3f3; --surface:#ffffff; --surface-2:#f3f7f7; --line:rgba(20,60,60,.12);
+      --ink:#10201f; --muted:#48605f; --faint:#7d9594;
+      --accent:#0d9488; --accent-ink:#ffffff;
+      --ok:#1f9d54; --warn:#a9791b; --bad:#c8402f;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0d1316; --surface:#141d21; --surface-2:#1b262b; --line:rgba(150,190,195,.14);
+    --ink:#dde7e8; --muted:#8ba1a5; --faint:#5f757a;
+    --accent:#33d1c1; --accent-ink:#0a1514; --ok:#74d68a; --warn:#f2c14e; --bad:#ff6b6b;
+  }
+  :root[data-theme="light"]{
+    --bg:#eef3f3; --surface:#ffffff; --surface-2:#f3f7f7; --line:rgba(20,60,60,.12);
+    --ink:#10201f; --muted:#48605f; --faint:#7d9594;
+    --accent:#0d9488; --accent-ink:#ffffff; --ok:#1f9d54; --warn:#a9791b; --bad:#c8402f;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.55;
+    -webkit-font-smoothing:antialiased;padding:clamp(16px,4vw,48px)}
+  .wrap{max-width:var(--maxw);margin:0 auto;display:flex;flex-direction:column;gap:22px}
+  header{display:flex;flex-direction:column;gap:10px}
+  .eyebrow{font-family:var(--mono);font-size:12px;letter-spacing:.18em;text-transform:uppercase;
+    color:var(--accent);display:flex;align-items:center;gap:8px}
+  .eyebrow::before{content:"";width:26px;height:1px;background:var(--accent);opacity:.7}
+  h1{font-size:clamp(26px,5vw,38px);margin:0;letter-spacing:-.02em;text-wrap:balance;font-weight:650}
+  .lede{color:var(--muted);margin:0;max-width:60ch}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);
+    padding:clamp(16px,3vw,26px)}
+  .drop{border:1.5px dashed var(--line);border-radius:var(--radius);background:var(--surface-2);
+    padding:38px 20px;text-align:center;cursor:pointer;transition:border-color .15s,background .15s;
+    display:flex;flex-direction:column;align-items:center;gap:10px}
+  .drop:hover,.drop.hot{border-color:var(--accent);background:color-mix(in srgb,var(--accent) 8%,var(--surface-2))}
+  .drop .big{font-size:17px;font-weight:600}
+  .drop .sub{color:var(--muted);font-size:13.5px}
+  .drop svg{width:34px;height:34px;color:var(--accent)}
+  .field{display:flex;flex-direction:column;gap:7px;margin-top:18px}
+  label.k{font-family:var(--mono);font-size:11.5px;letter-spacing:.14em;text-transform:uppercase;color:var(--faint)}
+  input[type=text]{font-family:var(--mono);font-size:14px;letter-spacing:.02em;color:var(--ink);
+    background:var(--surface-2);border:1px solid var(--line);border-radius:9px;padding:11px 13px;width:100%}
+  input[type=text]:focus-visible{outline:2px solid var(--accent);outline-offset:1px;border-color:transparent}
+  .hint{font-size:12.5px;color:var(--faint)}
+  .row{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin-top:18px}
+  button.act{font:inherit;font-weight:640;font-size:15px;background:var(--accent);color:var(--accent-ink);
+    border:none;border-radius:10px;padding:12px 22px;cursor:pointer;transition:filter .15s,transform .05s}
+  button.act:hover{filter:brightness(1.07)} button.act:active{transform:translateY(1px)}
+  button.act:disabled{opacity:.45;cursor:not-allowed}
+  button.ghost{background:transparent;border:1px solid var(--line);color:var(--ink)}
+  .file-pill{font-family:var(--mono);font-size:13px;color:var(--muted);word-break:break-all}
+  .result{display:none;flex-direction:column;gap:16px}
+  .result.show{display:flex}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{font-family:var(--mono);font-size:12px;letter-spacing:.03em;padding:5px 10px;border-radius:999px;
+    border:1px solid var(--line);display:inline-flex;align-items:center;gap:7px;background:var(--surface-2)}
+  .chip .dot{width:7px;height:7px;border-radius:50%}
+  .chip.ok .dot{background:var(--ok)} .chip.ok{color:var(--ok);border-color:color-mix(in srgb,var(--ok) 40%,transparent)}
+  .chip.bad .dot{background:var(--bad)} .chip.bad{color:var(--bad);border-color:color-mix(in srgb,var(--bad) 40%,transparent)}
+  .chip.info .dot{background:var(--accent)}
+  .hex{font-family:var(--mono);font-size:12.5px;line-height:1.7;background:var(--bg);border:1px solid var(--line);
+    border-radius:10px;padding:14px;overflow-x:auto;white-space:pre;color:var(--muted)}
+  .hex b{color:var(--accent);font-weight:600}
+  .hex u{color:var(--ok);text-decoration:none}
+  .bar{height:6px;background:var(--surface-2);border-radius:99px;overflow:hidden;border:1px solid var(--line)}
+  .bar > i{display:block;height:100%;width:0;background:var(--accent);transition:width .12s linear}
+  .steps{display:grid;gap:14px;grid-template-columns:1fr}
+  @media(min-width:620px){.steps{grid-template-columns:1fr 1fr 1fr}}
+  .step{display:flex;flex-direction:column;gap:5px}
+  .step .n{font-family:var(--mono);font-size:12px;color:var(--accent)}
+  .step .t{font-weight:600;font-size:14px}
+  .step .d{font-size:13px;color:var(--muted)}
+  footer{color:var(--faint);font-size:12.5px;display:flex;flex-direction:column;gap:6px;
+    border-top:1px solid var(--line);padding-top:16px}
+  footer code{font-family:var(--mono);color:var(--muted)}
+  .toggle{position:fixed;top:14px;right:14px;background:var(--surface);border:1px solid var(--line);
+    color:var(--muted);border-radius:9px;padding:7px 10px;font:inherit;font-size:12px;cursor:pointer}
+  a{color:var(--accent)}
+  @media (prefers-reduced-motion: reduce){*{transition:none!important}}
+</style>
+
+<button class="toggle" id="themeBtn" aria-label="Toggle theme">◐ theme</button>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Client-side · AES-128-CTR</div>
+    <h1>PMKE Bundle Decryptor</h1>
+    <p class="lede">Turns a <code>PMKE</code>-wrapped Unity AssetBundle back into a standard
+      <code>UnityFS</code> bundle. Everything runs in your browser with the Web Crypto API —
+      the file never leaves your device, and no server is involved.</p>
+  </header>
+
+  <div class="card">
+    <div class="drop" id="drop" tabindex="0" role="button" aria-label="Choose a .bundle file">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M12 16V4m0 0L8 8m4-4 4 4"/><path d="M4 16v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>
+      <div class="big">Drop a <span style="font-family:var(--mono)">.bundle</span> file here</div>
+      <div class="sub">or click to browse · processed locally, nothing uploaded</div>
+    </div>
+    <input type="file" id="file" accept=".bundle,application/octet-stream" hidden>
+
+    <div class="field">
+      <label class="k" for="key">AES-128 key · 16 bytes hex</label>
+      <input type="text" id="key" spellcheck="false" autocomplete="off"
+             placeholder="32 hex characters (game/build specific)">
+      <span class="hint">The key is per-game/per-build and is not distributed here. Paste the
+        32-character hex AES-128 key for your title to decrypt its bundles.</span>
+    </div>
+
+    <div class="row">
+      <button class="act" id="go" disabled>Decrypt bundle</button>
+      <span class="file-pill" id="fname">No file selected</span>
+    </div>
+
+    <div class="result" id="result">
+      <div class="bar" aria-hidden="true"><i id="prog"></i></div>
+      <div class="chips" id="chips"></div>
+      <div class="hex" id="hex" hidden></div>
+      <div class="row" style="margin-top:2px">
+        <button class="act" id="dl" hidden>Download decrypted .bundle</button>
+        <button class="act ghost" id="reset" hidden>Start over</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="steps">
+      <div class="step"><span class="n">01 · header</span><span class="t">Read 21 bytes</span>
+        <span class="d"><code style="font-family:var(--mono)">"PMKE"</code> magic (4) + version (1) + IV (16).</span></div>
+      <div class="step"><span class="n">02 · keystream</span><span class="t">AES-128-CTR</span>
+        <span class="d">IV is the initial 128-bit big-endian counter, +1 per 16-byte block.</span></div>
+      <div class="step"><span class="n">03 · verify</span><span class="t">UnityFS out</span>
+        <span class="d">Payload from offset 21 is XOR-decrypted; result should begin <code style="font-family:var(--mono)">UnityFS</code>.</span></div>
+    </div>
+  </div>
+
+  <footer>
+    <div>Reverse-engineered from the game's own <code>SeekableAesStream</code> / <code>EncryptedBundleFormat</code>. Key in-game = <code>SHA256(k4‖k1‖k5‖k3)[0:16]</code>.</div>
+    <div>Decrypt the bundle here, then open the output in AssetRipper — or use the built-in <code>PmkeBundleScheme</code> (set <code>AR_PMKE_KEY</code>) to skip this step entirely.</div>
+  </footer>
+</div>
+
+<script>
+(function(){
+  var root=document.documentElement, tbtn=document.getElementById('themeBtn');
+  tbtn.onclick=function(){
+    var cur=root.getAttribute('data-theme')||(matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');
+    root.setAttribute('data-theme', cur==='dark'?'light':'dark');
+  };
+
+  var fileInput=document.getElementById('file'), drop=document.getElementById('drop'),
+      go=document.getElementById('go'), fname=document.getElementById('fname'),
+      keyEl=document.getElementById('key'), result=document.getElementById('result'),
+      chips=document.getElementById('chips'), hexEl=document.getElementById('hex'),
+      prog=document.getElementById('prog'), dl=document.getElementById('dl'), reset=document.getElementById('reset');
+  var chosen=null, outUrl=null;
+
+  function pick(){ fileInput.click(); }
+  drop.onclick=pick;
+  drop.onkeydown=function(e){ if(e.key==='Enter'||e.key===' '){e.preventDefault();pick();} };
+  ['dragenter','dragover'].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.add('hot');});});
+  ['dragleave','drop'].forEach(function(ev){drop.addEventListener(ev,function(e){e.preventDefault();drop.classList.remove('hot');});});
+  drop.addEventListener('drop',function(e){ if(e.dataTransfer.files[0]) setFile(e.dataTransfer.files[0]); });
+  fileInput.onchange=function(){ if(fileInput.files[0]) setFile(fileInput.files[0]); };
+
+  function setFile(f){ chosen=f; fname.textContent=f.name+'  ·  '+fmtSize(f.size); go.disabled=false;
+    result.classList.remove('show'); }
+
+  function fmtSize(n){ if(n<1024)return n+' B'; if(n<1048576)return (n/1024).toFixed(1)+' KB';
+    if(n<1073741824)return (n/1048576).toFixed(1)+' MB'; return (n/1073741824).toFixed(2)+' GB'; }
+  function hex(b){var s='';for(var i=0;i<b.length;i++)s+=(b[i]<16?'0':'')+b[i].toString(16);return s;}
+
+  function chip(cls,txt){ var d=document.createElement('span'); d.className='chip '+cls;
+    d.innerHTML='<span class="dot"></span>'+txt; chips.appendChild(d); return d; }
+
+  go.onclick=async function(){
+    if(!chosen) return;
+    result.classList.add('show'); chips.innerHTML=''; hexEl.hidden=true; dl.hidden=true; reset.hidden=true;
+    prog.style.width='6%';
+    if(outUrl){URL.revokeObjectURL(outUrl);outUrl=null;}
+
+    var keyHex=keyEl.value.trim().replace(/\s+/g,'');
+    if(!/^[0-9a-fA-F]{32}$/.test(keyHex)){ chip('bad','enter a 32 hex-char key (16 bytes)'); prog.style.width='0'; return; }
+
+    try{
+      var buf=new Uint8Array(await chosen.arrayBuffer());
+      prog.style.width='22%';
+      if(buf.length<21 || buf[0]!==0x50||buf[1]!==0x4D||buf[2]!==0x4B||buf[3]!==0x45){
+        chip('bad','not a PMKE file — magic mismatch'); prog.style.width='0'; return;
+      }
+      chip('info','PMKE · v'+buf[4]);
+      var iv=buf.slice(5,21), payload=buf.slice(21);
+      var keyBytes=Uint8Array.from(keyHex.match(/../g).map(function(h){return parseInt(h,16);}));
+      var key=await crypto.subtle.importKey('raw',keyBytes,{name:'AES-CTR'},false,['decrypt']);
+      prog.style.width='45%';
+      var plain=new Uint8Array(await crypto.subtle.decrypt({name:'AES-CTR',counter:iv,length:128},key,payload));
+      prog.style.width='85%';
+
+      var sig=String.fromCharCode.apply(null,plain.slice(0,7));
+      var ok = sig==='UnityFS';
+      chip(ok?'ok':'bad', ok?'decrypted → UnityFS':'output is not UnityFS (wrong key?)');
+      chip('info', fmtSize(plain.length)+' out');
+
+      var head=plain.slice(0,32);
+      var hx=hex(head);
+      var ascii=''; for(var i=0;i<head.length;i++){var c=head[i];ascii+=(c>=32&&c<127)?String.fromCharCode(c):'·';}
+      hexEl.innerHTML='decrypted header  '+ (ok?'<u>'+escapeHtml(ascii.slice(0,7))+'</u>':escapeHtml(ascii.slice(0,7)))
+        + escapeHtml(ascii.slice(7)) + '\n' + hx.replace(/(.{2})/g,'$1 ').trim();
+      hexEl.hidden=false;
+
+      var blob=new Blob([plain],{type:'application/octet-stream'});
+      outUrl=URL.createObjectURL(blob);
+      var outName=chosen.name.replace(/\.bundle$/i,'')+'.decrypted.bundle';
+      dl.hidden=false; dl.onclick=function(){var a=document.createElement('a');a.href=outUrl;a.download=outName;a.click();};
+      reset.hidden=false;
+      prog.style.width='100%';
+    }catch(err){
+      chip('bad','decryption failed: '+(err&&err.message||err)); prog.style.width='0';
+    }
+  };
+
+  reset.onclick=function(){ chosen=null; fileInput.value=''; fname.textContent='No file selected';
+    go.disabled=true; result.classList.remove('show'); if(outUrl){URL.revokeObjectURL(outUrl);outUrl=null;} };
+
+  function escapeHtml(s){return s.replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+})();
+</script>
