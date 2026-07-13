@@ -1,0 +1,8 @@
+# Keep the build context small and reproducible.
+**/bin/
+**/obj/
+Source/0Bins/
+.git/
+.vs/
+**/*.user
+deploy/README.md
